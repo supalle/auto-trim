@@ -9,6 +9,7 @@
         <version>0.8.1</version>
     </parent>
 
+    <name>auto-trim-test</name>
     <artifactId>auto-trim-test</artifactId>
 
     <dependencies>
