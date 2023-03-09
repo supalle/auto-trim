@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.supalle</groupId>
+        <artifactId>auto-trim-project</artifactId>
+        <version>0.8.1</version>
+    </parent>
+
+    <artifactId>auto-trim</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service</artifactId>
+            <version>1.0.1</version>
+            <optional>true</optional>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/jdk.tools/jdk.tools -->
+        <dependency>
+            <groupId>jdk.tools</groupId>
+            <artifactId>jdk.tools</artifactId>
+            <version>jdk1.8.0_202</version>
+            <scope>system</scope>
+            <!--            <systemPath>D:/install/dev/Java/jdk1.8.0_202/lib/tools.jar</systemPath>-->
+            <systemPath>/Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/lib/tools.jar</systemPath>
+            <!--            <systemPath>/Users/supalle/Documents/install/dev/graalvm/graalvm-ce-java11-22.3.1/Contents/Home/lib/tools.jar</systemPath>-->
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>
