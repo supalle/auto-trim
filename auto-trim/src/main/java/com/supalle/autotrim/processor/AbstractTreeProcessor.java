@@ -1,4 +1,4 @@
-package com.supalle.autotrim;
+package com.supalle.autotrim.processor;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.SimpleTreeVisitor;
@@ -7,12 +7,12 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
+import com.supalle.autotrim.*;
 
 import javax.lang.model.element.Modifier;
 import java.util.ArrayList;
@@ -23,26 +23,26 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
 
-public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimContext> {
-    private static final String AUTO_TRIM_TYPE_CANONICAL_NAME = AutoTrim.class.getCanonicalName();
-    private static final String AUTO_TRIM_IGNORED_TYPE_CANONICAL_NAME = AutoTrim.Ignored.class.getCanonicalName();
+public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimContext> implements TreeProcessor<JCTree, AutoTrimContext> {
+    protected static final String AUTO_TRIM_TYPE_CANONICAL_NAME = AutoTrim.class.getCanonicalName();
+    protected static final String AUTO_TRIM_IGNORED_TYPE_CANONICAL_NAME = AutoTrim.Ignored.class.getCanonicalName();
     public static final String SUPER_IDENT_NAME = "super";
     public static final String INIT_METHOD_NAME = "<init>";
-    private static final String SETTER_PREFIX = "set";
+    protected static final String SETTER_PREFIX = "set";
     public static final String TEMP_PREFIX = "_$AutoTrim$_";
-    private static final String STRING_SIMPLE_NAME = String.class.getSimpleName();
-    private static final String STRING_NAME = String.class.getCanonicalName();
-    private static final String STRING_TRIM_METHOD_NAME = "trim";
-    private final TreeMaker M;
-    private final JavacElements elementUtils;
-    private final ConcurrentMap<String, Boolean> processedSymbols;
+    protected static final String STRING_SIMPLE_NAME = String.class.getSimpleName();
+    protected static final String STRING_NAME = String.class.getCanonicalName();
+    protected static final String STRING_TRIM_METHOD_NAME = "trim";
+    protected final TreeMaker M;
+    protected final JavacElements elementUtils;
+    protected final ConcurrentMap<String, Boolean> processedSymbols;
 
-
-    public AutoTrimTreeProcessor(TreeMaker m, JavacElements elementUtils, ConcurrentMap<String, Boolean> processedSymbols) {
+    public AbstractTreeProcessor(TreeMaker m, JavacElements elementUtils, ConcurrentMap<String, Boolean> processedSymbols) {
         M = m;
         this.elementUtils = elementUtils;
         this.processedSymbols = processedSymbols;
     }
+
 
     public <T extends JCTree> T process(T tree, AutoTrimContext context) {
         if (tree == null) {
@@ -52,85 +52,24 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
     }
 
     public <T extends JCTree> List<T> process(List<T> trees, AutoTrimContext context) {
-        if (trees == null)
-            return null;
+        if (trees == null || trees.isEmpty())
+            return trees;
         ListBuffer<T> lb = new ListBuffer<T>();
         for (T tree : trees)
             lb.append(process(tree, context));
         return lb.toList();
     }
 
-    public JCTree visitAnnotatedType(AnnotatedTypeTree node, AutoTrimContext context) {
-        JCAnnotatedType t = (JCAnnotatedType) node;
-        return t;
+    @Override
+    protected JCTree defaultAction(Tree node, AutoTrimContext autoTrimContext) {
+        return (JCTree) node;
     }
 
-    public JCTree visitAnnotation(AnnotationTree node, AutoTrimContext context) {
-        JCAnnotation t = (JCAnnotation) node;
-        return t;
-    }
-
-    public JCTree visitAssert(AssertTree node, AutoTrimContext context) {
-        JCAssert t = (JCAssert) node;
-        t.cond = process(t.cond, context);
-        t.detail = process(t.detail, context);
-        return t;
-    }
-
-    public JCTree visitAssignment(AssignmentTree node, AutoTrimContext context) {
-        JCAssign t = (JCAssign) node;
-        t.lhs = process(t.lhs, context);
-        t.rhs = process(t.rhs, context);
-        return t;
-    }
-
-    public JCTree visitCompoundAssignment(CompoundAssignmentTree node, AutoTrimContext context) {
-        JCAssignOp t = (JCAssignOp) node;
-        t.lhs = process(t.lhs, context);
-        t.rhs = process(t.rhs, context);
-        return t;
-    }
-
-    public JCTree visitBinary(BinaryTree node, AutoTrimContext context) {
-        JCBinary t = (JCBinary) node;
-        t.lhs = process(t.lhs, context);
-        t.rhs = process(t.rhs, context);
-        return t;
-    }
-
-    public JCTree visitBlock(BlockTree node, AutoTrimContext context) {
-        JCBlock t = (JCBlock) node;
-        context.newVarStack();
-        t.stats = process(t.stats, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitBreak(BreakTree node, AutoTrimContext context) {
-        JCBreak t = (JCBreak) node;
-        return t;
-    }
-
-    public JCTree visitCase(CaseTree node, AutoTrimContext context) {
-        JCCase t = (JCCase) node;
-        context.newVarStack();
-        // t.pat = process(t.pat, context);
-        t.stats = process(t.stats, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitCatch(CatchTree node, AutoTrimContext context) {
-        JCCatch t = (JCCatch) node;
-        context.newVarStack();
-        t.param = process(t.param, context);
-        t.body = process(t.body, context);
-        context.popVarStack();
-        return t;
-    }
-
+    // =================================================
+    // ==================== code =======================
+    // =================================================
     public JCTree visitClass(ClassTree node, AutoTrimContext context) {
-        JCClassDecl jcClassDecl = (JCClassDecl) node;
+        JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
         context.newVarStack();
         final ClassMetadata classMetadata = context.getClassMetadata();
         String className;
@@ -138,7 +77,7 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         boolean anonymousInnerClass = false;
         if (jcClassDecl.sym != null) {
             innerClass = jcClassDecl.sym.owner instanceof Symbol.ClassSymbol;
-            className = jcClassDecl.sym.name.toString();
+            className = jcClassDecl.sym.fullname.toString();
         } else {
             innerClass = true;
             Name simpleName = jcClassDecl.getSimpleName();
@@ -154,17 +93,17 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         newClassMetadata.setInnerClass(innerClass);
         newClassMetadata.setAnonymousInnerClass(anonymousInnerClass);
         final List<JCTree> members = Optional.ofNullable(jcClassDecl.getMembers()).orElseGet(List::nil);
-        final ArrayList<JCVariableDecl> fields = new ArrayList<>();
-        final ArrayList<JCMethodDecl> methods = new ArrayList<>();
-        final ArrayList<JCClassDecl> subClasses = new ArrayList<>();
+        final ArrayList<JCTree.JCVariableDecl> fields = new ArrayList<>();
+        final ArrayList<JCTree.JCMethodDecl> methods = new ArrayList<>();
+        final ArrayList<JCTree.JCClassDecl> subClasses = new ArrayList<>();
         final ArrayList<JCTree> others = new ArrayList<>();
         for (JCTree member : members) {
-            if (member instanceof JCVariableDecl) {
-                fields.add((JCVariableDecl) member);
-            } else if (member instanceof JCMethodDecl) {
-                methods.add((JCMethodDecl) member);
-            } else if (member instanceof JCClassDecl) {
-                subClasses.add((JCClassDecl) member);
+            if (member instanceof JCTree.JCVariableDecl) {
+                fields.add((JCTree.JCVariableDecl) member);
+            } else if (member instanceof JCTree.JCMethodDecl) {
+                methods.add((JCTree.JCMethodDecl) member);
+            } else if (member instanceof JCTree.JCClassDecl) {
+                subClasses.add((JCTree.JCClassDecl) member);
             } else {
                 others.add(member);
             }
@@ -177,7 +116,7 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         //     // Assert.error("others is mot empty.");// throw
         // }
 
-        for (JCClassDecl subClass : subClasses) {
+        for (JCTree.JCClassDecl subClass : subClasses) {
             Name simpleName = subClass.getSimpleName();
             if (simpleName != null) {
                 String subClassName = simpleName.toString();
@@ -187,7 +126,7 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
             }
         }
 
-        for (JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
+        for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
             if (matchImportType(AUTO_TRIM_TYPE_CANONICAL_NAME, annotation, context)) {
                 newClassMetadata.setAutoTrim(true);
                 continue;
@@ -197,10 +136,10 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
             }
         }
 
-        for (JCVariableDecl variableDecl : fields) {
+        for (JCTree.JCVariableDecl variableDecl : fields) {
             boolean autoTrim = false;
             boolean autoTrimIgnored = false;
-            for (JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+            for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
                 if (matchImportType(AUTO_TRIM_TYPE_CANONICAL_NAME, annotation, context)) {
                     autoTrim = true;
                     continue;
@@ -214,10 +153,10 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
 
             variableDecl.accept(this, context);
         }
-        for (JCMethodDecl method : methods) {
+        for (JCTree.JCMethodDecl method : methods) {
             process(method, context);
         }
-        for (JCClassDecl subClass : subClasses) {
+        for (JCTree.JCClassDecl subClass : subClasses) {
             process(subClass, context);
         }
 
@@ -226,115 +165,8 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         return jcClassDecl;
     }
 
-    public JCTree visitConditionalExpression(ConditionalExpressionTree node, AutoTrimContext context) {
-        JCConditional t = (JCConditional) node;
-        t.cond = process(t.cond, context);
-        t.truepart = process(t.truepart, context);
-        t.falsepart = process(t.falsepart, context);
-        return t;
-    }
-
-    public JCTree visitContinue(ContinueTree node, AutoTrimContext context) {
-        JCContinue t = (JCContinue) node;
-        return t;
-    }
-
-    public JCTree visitDoWhileLoop(DoWhileLoopTree node, AutoTrimContext context) {
-        JCDoWhileLoop t = (JCDoWhileLoop) node;
-        context.newVarStack();
-        t.body = process(t.body, context);
-        context.popVarStack();
-        t.cond = process(t.cond, context);
-        return t;
-    }
-
-    public JCTree visitErroneous(ErroneousTree node, AutoTrimContext context) {
-        JCErroneous t = (JCErroneous) node;
-        t.errs = process(t.errs, context);
-        return t;
-    }
-
-    public JCTree visitExpressionStatement(ExpressionStatementTree node, AutoTrimContext context) {
-        JCExpressionStatement t = (JCExpressionStatement) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitEnhancedForLoop(EnhancedForLoopTree node, AutoTrimContext context) {
-        JCEnhancedForLoop t = (JCEnhancedForLoop) node;
-        context.newVarStack();
-        // t.var = process(t.var, context);
-        t.expr = process(t.expr, context);
-        context.newVarStack();
-        t.body = process(t.body, context);
-        context.popVarStack();
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitForLoop(ForLoopTree node, AutoTrimContext context) {
-        JCForLoop t = (JCForLoop) node;
-        context.newVarStack();
-        t.init = process(t.init, context);
-        t.cond = process(t.cond, context);
-        context.newVarStack();
-        t.body = process(t.body, context);
-        context.popVarStack();
-        t.step = process(t.step, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitIdentifier(IdentifierTree node, AutoTrimContext context) {
-        JCIdent t = (JCIdent) node;
-        VarStack varStack = context.getVarStack();
-        VarStack.StackVar stackVar = varStack.getStackVar(t.getName().toString());
-        if (stackVar != null && stackVar.isAutoTrim()) {
-            if (context.getClassMetadata().isInnerClass()) {
-                stackVar.setNeedFinal(true);
-            }
-            JCParens reference = M.Parens(t);
-            stackVar.addReference(reference);
-            return reference;
-        }
-        return t;
-    }
-
-    public JCTree visitIf(IfTree node, AutoTrimContext context) {
-        JCIf t = (JCIf) node;
-        t.cond = process(t.cond, context);
-        t.thenpart = process(t.thenpart, context);
-        t.elsepart = process(t.elsepart, context);
-        return t;
-    }
-
-    public JCTree visitImport(ImportTree node, AutoTrimContext context) {
-        JCImport t = (JCImport) node;
-        return t;
-    }
-
-    public JCTree visitArrayAccess(ArrayAccessTree node, AutoTrimContext context) {
-        JCArrayAccess t = (JCArrayAccess) node;
-        t.indexed = process(t.indexed, context);
-        t.index = process(t.index, context);
-        return t;
-    }
-
-    public JCTree visitLabeledStatement(LabeledStatementTree node, AutoTrimContext context) {
-        JCLabeledStatement t = (JCLabeledStatement) node;
-        context.newVarStack();
-        t.body = process(t.body, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitLiteral(LiteralTree node, AutoTrimContext context) {
-        JCLiteral t = (JCLiteral) node;
-        return t;
-    }
-
     public JCTree visitMethod(MethodTree node, AutoTrimContext context) {
-        JCMethodDecl t = (JCMethodDecl) node;
+        JCTree.JCMethodDecl t = (JCTree.JCMethodDecl) node;
         String methodName = t.getName().toString();
         String key = context.getClassMetadata().getName() + "#" + methodName;
         if (Boolean.TRUE.equals(this.processedSymbols.get(key))) {
@@ -346,11 +178,11 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         }
         context.newVarStack();
 
-        List<JCVariableDecl> parameters = t.getParameters();
+        List<JCTree.JCVariableDecl> parameters = t.getParameters();
         if (parameters != null && !parameters.isEmpty()) {
             boolean methodAutoTrim = false;
             boolean methodAutoTrimIgnored = false;
-            for (JCAnnotation annotation : t.getModifiers().getAnnotations()) {
+            for (JCTree.JCAnnotation annotation : t.getModifiers().getAnnotations()) {
                 if (matchImportType(AUTO_TRIM_TYPE_CANONICAL_NAME, annotation, context)) {
                     methodAutoTrim = true;
                     continue;
@@ -377,15 +209,15 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
             boolean classAutoTrim = classMetadata.isAutoTrim();
 
             ArrayList<VarStack.StackVar> autoTrimVars = new ArrayList<>();
-            for (JCVariableDecl variableDecl : parameters) {
+            for (JCTree.JCVariableDecl variableDecl : parameters) {
                 JCTree variableDeclType = variableDecl.getType();
                 if (!matchImportType(STRING_NAME, variableDeclType, context)) {
                     continue;
                 }
                 boolean varAutoTrim = false;
                 boolean varAutoTrimIgnored = false;
-                JCModifiers variableDeclModifiers = variableDecl.getModifiers();
-                for (JCAnnotation annotation : variableDeclModifiers.getAnnotations()) {
+                JCTree.JCModifiers variableDeclModifiers = variableDecl.getModifiers();
+                for (JCTree.JCAnnotation annotation : variableDeclModifiers.getAnnotations()) {
                     if (matchImportType(AUTO_TRIM_TYPE_CANONICAL_NAME, annotation, context)) {
                         varAutoTrim = true;
                         continue;
@@ -437,24 +269,24 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
                 context.addStackVar(stackVar);
             }
 
-            ArrayList<JCStatement> preStatements = new ArrayList<>();
+            ArrayList<JCTree.JCStatement> preStatements = new ArrayList<>();
             // 如果是构造器，且首行为super调用
             if (hasSuperFirst(t)) {
-                ArrayList<JCStatement> statements = new ArrayList<>(t.getBody().getStatements());
+                ArrayList<JCTree.JCStatement> statements = new ArrayList<>(t.getBody().getStatements());
                 // 如果是有参的super构造器
                 if (hasArgsSuperFirst(t)) {
                     // 1. 给所有的String类型参数添加trim表达式包装
                     // 2. 替换所有String类型参数出现的地方
                     preStatements.add(process(statements.get(0), context));
                     for (VarStack.StackVar stackVar : autoTrimVars) {
-                        java.util.List<JCParens> references = stackVar.getReferences();
+                        java.util.List<JCTree.JCParens> references = stackVar.getReferences();
                         if (references == null) {
                             continue;
                         }
 
                         Name varName = elementUtils.getName(stackVar.getName());
-                        JCConditional trimConditional = buildTrimConditional(M, elementUtils, varName);
-                        for (JCParens reference : references) {
+                        JCTree.JCConditional trimConditional = buildTrimConditional(M, elementUtils, varName);
+                        for (JCTree.JCParens reference : references) {
                             reference.expr = trimConditional;
                         }
                         references.clear();
@@ -469,26 +301,26 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
             t.body = process(t.getBody(), context);
 
             for (VarStack.StackVar stackVar : autoTrimVars) {
-                java.util.List<JCParens> references = stackVar.getReferences();
+                java.util.List<JCTree.JCParens> references = stackVar.getReferences();
                 if (references == null) {
                     continue;
                 }
 
                 Name varName = elementUtils.getName(stackVar.getName());
                 if (references.size() == 1) {
-                    JCParens jcParens = references.get(0);
+                    JCTree.JCParens jcParens = references.get(0);
                     jcParens.expr = buildTrimConditional(M, elementUtils, varName);
                     continue;
                 }
 
                 if (stackVar.isNeedFinal()) {
                     final Name tempVarName = elementUtils.getName(TEMP_PREFIX).append(varName);
-                    final JCExpression tempVarIdent = M.Ident(tempVarName);
+                    final JCTree.JCExpression tempVarIdent = M.Ident(tempVarName);
 
-                    final JCVariableDecl tempVar = M.VarDef(M.Modifiers(FINAL), tempVarName,
+                    final JCTree.JCVariableDecl tempVar = M.VarDef(M.Modifiers(FINAL), tempVarName,
                             M.Ident(elementUtils.getName(STRING_SIMPLE_NAME)), buildTrimConditional(M, elementUtils, varName));
                     preStatements.add(tempVar);
-                    for (JCParens jcParens : references) {
+                    for (JCTree.JCParens jcParens : references) {
                         jcParens.expr = tempVarIdent;
                     }
                 } else {
@@ -506,185 +338,11 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         return t;
     }
 
-    public JCTree visitMethodInvocation(MethodInvocationTree node, AutoTrimContext context) {
-        JCMethodInvocation t = (JCMethodInvocation) node;
-        t.meth = process(t.meth, context);
-        t.args = process(t.args, context);
-        return t;
-    }
-
-    public JCTree visitModifiers(ModifiersTree node, AutoTrimContext context) {
-        JCModifiers t = (JCModifiers) node;
-        // List<JCAnnotation> annotations = process(t.annotations, context);
-        return t;
-    }
-
-    public JCTree visitNewArray(NewArrayTree node, AutoTrimContext context) {
-        JCNewArray t = (JCNewArray) node;
-        t.elemtype = process(t.elemtype, context);
-        t.dims = process(t.dims, context);
-        t.elems = process(t.elems, context);
-        return t;
-    }
-
-    public JCTree visitNewClass(NewClassTree node, AutoTrimContext context) {
-        JCNewClass t = (JCNewClass) node;
-        context.newVarStack();
-        t.encl = process(t.encl, context);
-        // List<JCExpression> typeargs = process(t.typeargs, context);
-        t.clazz = process(t.clazz, context);
-        t.args = process(t.args, context);
-        t.def = process(t.def, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitLambdaExpression(LambdaExpressionTree node, AutoTrimContext context) {
-        JCLambda t = (JCLambda) node;
-        final ClassMetadata classMetadata = context.getClassMetadata();
-        int number = classMetadata.nextAnonymousInnerClassCounter();
-        String className = classMetadata.getName() + "$InnerClass" + number;
-        context.newClassMetadata(classMetadata, className).setInnerClass(true);
-        context.newVarStack();
-        t.params = process(t.params, context);
-        t.body = process(t.body, context);
-        context.popVarStack();
-        context.popClassMetadata();
-        return t;
-    }
-
-    public JCTree visitParenthesized(ParenthesizedTree node, AutoTrimContext context) {
-        JCParens t = (JCParens) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitReturn(ReturnTree node, AutoTrimContext context) {
-        JCReturn t = (JCReturn) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitMemberSelect(MemberSelectTree node, AutoTrimContext context) {
-        JCFieldAccess t = (JCFieldAccess) node;
-        t.selected = process(t.selected, context);
-        return t;
-    }
-
-    public JCTree visitMemberReference(MemberReferenceTree node, AutoTrimContext context) {
-        JCMemberReference t = (JCMemberReference) node;
-        t.expr = process(t.expr, context);
-        t.typeargs = process(t.typeargs, context);
-        return t;
-    }
-
-    public JCTree visitEmptyStatement(EmptyStatementTree node, AutoTrimContext context) {
-        JCSkip t = (JCSkip) node;
-        return t;
-    }
-
-    public JCTree visitSwitch(SwitchTree node, AutoTrimContext context) {
-        JCSwitch t = (JCSwitch) node;
-        context.newVarStack();
-        t.selector = process(t.selector, context);
-        t.cases = process(t.cases, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitSynchronized(SynchronizedTree node, AutoTrimContext context) {
-        JCSynchronized t = (JCSynchronized) node;
-        t.lock = process(t.lock, context);
-        t.body = process(t.body, context);
-        return t;
-    }
-
-    public JCTree visitThrow(ThrowTree node, AutoTrimContext context) {
-        JCThrow t = (JCThrow) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitCompilationUnit(CompilationUnitTree node, AutoTrimContext context) {
-        JCCompilationUnit t = (JCCompilationUnit) node;
-        return t;
-    }
-
-    public JCTree visitTry(TryTree node, AutoTrimContext context) {
-        JCTry t = (JCTry) node;
-        context.newVarStack();
-        t.resources = process(t.resources, context);
-        t.body = process(t.body, context);
-        context.popVarStack();
-
-        context.newVarStack();
-        t.catchers = process(t.catchers, context);
-        context.popVarStack();
-
-        context.newVarStack();
-        t.finalizer = process(t.finalizer, context);
-        context.popVarStack();
-        return t;
-    }
-
-    public JCTree visitParameterizedType(ParameterizedTypeTree node, AutoTrimContext context) {
-        JCTypeApply t = (JCTypeApply) node;
-        return t;
-    }
-
-    public JCTree visitUnionType(UnionTypeTree node, AutoTrimContext context) {
-        JCTypeUnion t = (JCTypeUnion) node;
-        // List<JCExpression> components = process(t.alternatives, context);
-        return t;
-    }
-
-    public JCTree visitIntersectionType(IntersectionTypeTree node, AutoTrimContext context) {
-        JCTypeIntersection t = (JCTypeIntersection) node;
-        t.bounds = process(t.bounds, context);
-        return t;
-    }
-
-    public JCTree visitArrayType(ArrayTypeTree node, AutoTrimContext context) {
-        JCArrayTypeTree t = (JCArrayTypeTree) node;
-        t.elemtype = process(t.elemtype, context);
-        return t;
-    }
-
-    public JCTree visitTypeCast(TypeCastTree node, AutoTrimContext context) {
-        JCTypeCast t = (JCTypeCast) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitPrimitiveType(PrimitiveTypeTree node, AutoTrimContext context) {
-        JCPrimitiveTypeTree t = (JCPrimitiveTypeTree) node;
-        return t;
-    }
-
-    public JCTree visitTypeParameter(TypeParameterTree node, AutoTrimContext context) {
-        JCTypeParameter t = (JCTypeParameter) node;
-        // List<JCAnnotation> annos = process(t.annotations, context);
-        // List<JCExpression> bounds = process(t.bounds, context);
-        return t;
-    }
-
-    public JCTree visitInstanceOf(InstanceOfTree node, AutoTrimContext context) {
-        JCInstanceOf t = (JCInstanceOf) node;
-        t.expr = process(t.expr, context);
-        return t;
-    }
-
-    public JCTree visitUnary(UnaryTree node, AutoTrimContext context) {
-        JCUnary t = (JCUnary) node;
-        t.arg = process(t.arg, context);
-        return t;
-    }
-
     public JCTree visitVariable(VariableTree node, AutoTrimContext context) {
-        JCVariableDecl t = (JCVariableDecl) node;
-        JCExpression initializer = t.getInitializer();
+        JCTree.JCVariableDecl t = (JCTree.JCVariableDecl) node;
+        JCTree.JCExpression initializer = t.getInitializer();
         if (initializer != null) {
-            JCExpression newInitializer = process(t.getInitializer(), context);
+            JCTree.JCExpression newInitializer = process(t.getInitializer(), context);
             if (newInitializer != initializer) {
                 t.init = newInitializer;
             }
@@ -693,44 +351,38 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         return t;
     }
 
-    public JCTree visitWhileLoop(WhileLoopTree node, AutoTrimContext context) {
-        JCWhileLoop t = (JCWhileLoop) node;
-        t.body = process(t.body, context);
-        t.cond = process(t.cond, context);
+    public JCTree visitBlock(BlockTree node, AutoTrimContext context) {
+        JCTree.JCBlock t = (JCTree.JCBlock) node;
+        context.newVarStack();
+        t.stats = process(t.stats, context);
+        context.popVarStack();
         return t;
     }
 
-    public JCTree visitWildcard(WildcardTree node, AutoTrimContext context) {
-        JCWildcard t = (JCWildcard) node;
-        // TypeBoundKind kind = M.at(t.kind.pos).TypeBoundKind(t.kind.kind);
-        // JCTree inner = process(t.inner, context);
-        return t;
-    }
-
-
-    public JCTree visitOther(Tree node, AutoTrimContext context) {
-        JCTree tree = (JCTree) node;
-        switch (tree.getTag()) {
-            case LETEXPR: {
-                LetExpr t = (LetExpr) node;
-                t.defs = process(t.defs, context);
-                t.expr = process(t.expr, context);
-                return t;
+    public JCTree visitIdentifier(IdentifierTree node, AutoTrimContext context) {
+        JCTree.JCIdent t = (JCTree.JCIdent) node;
+        VarStack varStack = context.getVarStack();
+        VarStack.StackVar stackVar = varStack.getStackVar(t.getName().toString());
+        if (stackVar != null && stackVar.isAutoTrim()) {
+            if (context.getClassMetadata().isInnerClass()) {
+                stackVar.setNeedFinal(true);
             }
-            default:
-                throw new AssertionError("unknown tree tag: " + tree.getTag());
+            JCTree.JCParens reference = M.Parens(t);
+            stackVar.addReference(reference);
+            return reference;
         }
+        return t;
     }
 
-    @Override
-    protected JCTree defaultAction(Tree node, AutoTrimContext autoTrimContext) {
-        return (JCTree) node;
-    }
+    // =================================================
+    // ==================== code =======================
+    // =================================================
 
-    private static JCConditional buildTrimConditional(TreeMaker treeMaker, JavacElements elementUtils, Name varName) {
-        JCIdent variableIdent = treeMaker.Ident(varName);
+
+    protected static JCTree.JCConditional buildTrimConditional(TreeMaker treeMaker, JavacElements elementUtils, Name varName) {
+        JCTree.JCIdent variableIdent = treeMaker.Ident(varName);
         return treeMaker.Conditional(
-                treeMaker.Binary(Tag.EQ, variableIdent, treeMaker.Literal(TypeTag.BOT, null))
+                treeMaker.Binary(JCTree.Tag.EQ, variableIdent, treeMaker.Literal(TypeTag.BOT, null))
                 , treeMaker.Literal(TypeTag.BOT, null)
                 , treeMaker.Apply(List.nil(),
                         treeMaker.Select(variableIdent, elementUtils.getName(STRING_TRIM_METHOD_NAME))
@@ -739,16 +391,16 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
     }
 
 
-    private static boolean isEmptyMethod(JCMethodDecl jcMethodDecl) {
+    protected static boolean isEmptyMethod(JCTree.JCMethodDecl jcMethodDecl) {
         // 跳过全空的方法
         if (jcMethodDecl.getBody() == null) {
             return true;
         }
-        final List<JCStatement> statements = jcMethodDecl.getBody().getStatements();
+        final List<JCTree.JCStatement> statements = jcMethodDecl.getBody().getStatements();
         return statements == null || statements.isEmpty();
     }
 
-    private boolean hasSuperFirst(MethodTree methodTree) {
+    protected boolean hasSuperFirst(MethodTree methodTree) {
         boolean isInitMethod = methodTree.getName().contentEquals(INIT_METHOD_NAME);
         if (!isInitMethod) {
             return false;
@@ -770,7 +422,7 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
         return ((IdentifierTree) methodSelect).getName().contentEquals(SUPER_IDENT_NAME);
     }
 
-    private boolean hasArgsSuperFirst(MethodTree methodTree) {
+    protected boolean hasArgsSuperFirst(MethodTree methodTree) {
         boolean isInitMethod = methodTree.getName().contentEquals(INIT_METHOD_NAME);
         if (!isInitMethod) {
             return false;
@@ -808,8 +460,8 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
             return true;
         }
         String annotationTypeName;
-        if (jcTree instanceof JCAnnotation) {
-            JCTree annotationType = ((JCAnnotation) jcTree).getAnnotationType();
+        if (jcTree instanceof JCTree.JCAnnotation) {
+            JCTree annotationType = ((JCTree.JCAnnotation) jcTree).getAnnotationType();
             Name name = TreeInfo.fullName(annotationType);
             if (name == null) {
                 return false;
@@ -880,5 +532,4 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
 
         return false;
     }
-
 }

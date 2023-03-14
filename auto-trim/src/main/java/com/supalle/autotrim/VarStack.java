@@ -38,23 +38,23 @@ public class VarStack {
         return stackVar;
     }
 
-    static class StackVar {
+    public static class StackVar {
         private final String name;
         private final ExpressionTree replaceExpression;
         private boolean autoTrim;
         private boolean needFinal;
         private List<JCTree.JCParens> references;
 
-        StackVar(String name) {
+        public StackVar(String name) {
             this(name, null);
         }
 
-        StackVar(String name, ExpressionTree replaceExpression) {
+        public StackVar(String name, ExpressionTree replaceExpression) {
             this.name = name;
             this.replaceExpression = replaceExpression;
         }
 
-        StackVar(String name, boolean autoTrim, boolean needFinal) {
+        public StackVar(String name, boolean autoTrim, boolean needFinal) {
             this.name = name;
             this.replaceExpression = null;
             this.autoTrim = autoTrim;

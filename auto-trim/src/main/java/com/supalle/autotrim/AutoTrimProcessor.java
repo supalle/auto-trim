@@ -2,12 +2,15 @@ package com.supalle.autotrim;
 
 import com.google.auto.service.AutoService;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Pair;
+import com.supalle.autotrim.processor.Processors;
+import com.supalle.autotrim.processor.TreeProcessor;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -18,6 +21,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -37,6 +41,7 @@ public class AutoTrimProcessor extends AbstractProcessor {
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
+        ModuleScript.addOpensForAutoTrim(this.getClass());
         this.processingEnv = processingEnv;
         this.elementUtils = (JavacElements) processingEnv.getElementUtils();
         this.treeMaker = TreeMaker.instance(Objects.requireNonNull(getContext(processingEnv), "不支持的javac编译环境，无法获取编译上下文"));
@@ -44,7 +49,7 @@ public class AutoTrimProcessor extends AbstractProcessor {
 
     private Context getContext(ProcessingEnvironment processingEnv) {
         Elements elements = processingEnv.getElementUtils();
-        com.sun.tools.javac.main.JavaCompiler javaCompiler = getFieldValue("javaCompiler", elements);
+        JavaCompiler javaCompiler = getFieldValue("javaCompiler", elements);
         return getFieldValue("context", javaCompiler);
     }
 
@@ -68,7 +73,7 @@ public class AutoTrimProcessor extends AbstractProcessor {
 
     @Override
     public SourceVersion getSupportedSourceVersion() {
-        return SourceVersion.RELEASE_8;
+        return SourceVersion.latestSupported();
     }
 
     @Override
@@ -91,7 +96,8 @@ public class AutoTrimProcessor extends AbstractProcessor {
 
 
     private void finishRemaining() {
-        AutoTrimTreeProcessor processor = new AutoTrimTreeProcessor(treeMaker, elementUtils, processedSymbols);
+        TreeProcessor<JCTree, AutoTrimContext> processor = Processors.getProcessor(processingEnv.getSourceVersion(), treeMaker, elementUtils, processedSymbols);
+        // AutoTrimTreeProcessor processor = new AutoTrimTreeProcessor(treeMaker, elementUtils, processedSymbols);
 
         for (Map.Entry<Element, Pair<JCTree, JCTree.JCCompilationUnit>> entry : this.candidates.entrySet()) {
             // final Element rootElement = entry.getKey();
@@ -108,14 +114,31 @@ public class AutoTrimProcessor extends AbstractProcessor {
                     importMetadata.addImport(jcImport);
                 }
             }
-            ExpressionTree packageName = jcCompilationUnit.getPackageName();
-            if (packageName != null) {
-                importMetadata.setPackageName(packageName.toString());
-            }
+            importMetadata.setPackageName(getPackageName(jcCompilationUnit));
             context.setImportMetadata(importMetadata);
 
-            processor.process(jcTree, context);
+            jcTree.accept(processor, context);
         }
+    }
+
+    private String getPackageName(JCTree.JCCompilationUnit jcCompilationUnit) {
+        try {
+            ExpressionTree packageName = jcCompilationUnit.getPackageName();
+            if (packageName != null) {
+                return packageName.toString();
+            }
+        } catch (Exception e) {
+            if (e instanceof NoSuchMethodException) {
+                try {
+                    Method method = JCTree.JCCompilationUnit.class.getMethod("getPackage");
+                    method.setAccessible(true);
+                    return ((JCTree.JCPackageDecl) method.invoke(jcCompilationUnit)).getPackageName().toString();
+                } catch (Exception ignored) {
+                }
+            }
+            throw new RuntimeException(e.getMessage(), e);
+        }
+        return null;
     }
 
 }
