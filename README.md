@@ -272,3 +272,9 @@ public interface UserService {
 ## 4. 鸣谢
 
 - 感谢 [Lombok](https://github.com/projectlombok/lombok) 的代码开源，给予我参考。
+
+## 5. 更新周期
+AutoTrim定位为单一功能，轻包袱的工具，因此暂时不会加太多其他与之无关的功能，如有新的APT点子，会另开项目推出，因此更新的频率不会太频繁。
+
+- 修复已知bug后，发布小版本；
+- JDK发布新版本后，会第一时间支持新的JDK版本，然后发布大版本。
