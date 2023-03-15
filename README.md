@@ -20,6 +20,7 @@ Auto-Trim使用Java编译时注解处理器（ Annotation Processing Tool）帮�
 - 支持属性上使用；
 - 支持方法上使用；
 - 支持方法形参上使用；
+- 支持final修饰的形参；
 
 ## 注意
 
