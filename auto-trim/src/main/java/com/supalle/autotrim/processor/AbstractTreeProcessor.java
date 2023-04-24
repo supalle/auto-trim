@@ -501,10 +501,10 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
             if (packages.contains(typeName)) {
                 return classMetadata.cacheTypeMatchResult(typeName, annotationTypeName, true);
             }
-            boolean hasSuffix = names.length > 1 && names[2].trim().length() > 0;
+            boolean hasSuffix = names.length > 1 && names[1].trim().length() > 0;
             String firstSimpleNameAndPrefix = "." + firstSimpleName;
             if (hasSuffix) {
-                String suffix = "." + names[2].trim();
+                String suffix = "." + names[1].trim();
                 for (String pkg : packages) {
                     if (pkg.equals(firstSimpleName) || pkg.endsWith(firstSimpleNameAndPrefix)) {
                         Symbol.ClassSymbol typeElement = elementUtils.getTypeElement(pkg + suffix);
