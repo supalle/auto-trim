@@ -39,6 +39,7 @@ public class VarStack {
     }
 
     public static class StackVar {
+        private JCTree variableDeclType;
         private final String name;
         private final ExpressionTree replaceExpression;
         private boolean autoTrim;
@@ -54,8 +55,9 @@ public class VarStack {
             this.replaceExpression = replaceExpression;
         }
 
-        public StackVar(String name, boolean autoTrim, boolean needFinal) {
+        public StackVar(String name, JCTree variableDeclType, boolean autoTrim, boolean needFinal) {
             this.name = name;
+            this.variableDeclType = variableDeclType;
             this.replaceExpression = null;
             this.autoTrim = autoTrim;
             this.needFinal = needFinal;
@@ -65,6 +67,13 @@ public class VarStack {
             return name;
         }
 
+        public JCTree getVariableDeclType() {
+            return variableDeclType;
+        }
+
+        public void setVariableDeclType(JCTree variableDeclType) {
+            this.variableDeclType = variableDeclType;
+        }
 
         public ExpressionTree getReplaceExpression() {
             return replaceExpression;

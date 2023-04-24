@@ -430,7 +430,7 @@ public class AutoTrimTreeProcessor extends SimpleTreeVisitor<JCTree, AutoTrimCon
                     }
                 }
 
-                VarStack.StackVar stackVar = new VarStack.StackVar(variableDecl.getName().toString(), varAutoTrim, variableDeclModifiers.getFlags().contains(Modifier.FINAL));
+                VarStack.StackVar stackVar = new VarStack.StackVar(variableDecl.getName().toString(), variableDeclType, varAutoTrim, variableDeclModifiers.getFlags().contains(Modifier.FINAL));
                 if (stackVar.isAutoTrim()) {
                     autoTrimVars.add(stackVar);
                 }

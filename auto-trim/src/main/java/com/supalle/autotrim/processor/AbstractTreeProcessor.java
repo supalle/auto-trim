@@ -30,7 +30,7 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
     public static final String INIT_METHOD_NAME = "<init>";
     protected static final String SETTER_PREFIX = "set";
     public static final String TEMP_PREFIX = "_$AutoTrim$_";
-    protected static final String STRING_SIMPLE_NAME = String.class.getSimpleName();
+    // protected static final String STRING_SIMPLE_NAME = String.class.getSimpleName();
     protected static final String STRING_NAME = String.class.getCanonicalName();
     protected static final String STRING_TRIM_METHOD_NAME = "trim";
     protected final TreeMaker M;
@@ -262,7 +262,7 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
                     }
                 }
 
-                VarStack.StackVar stackVar = new VarStack.StackVar(variableDecl.getName().toString(), varAutoTrim, variableDeclModifiers.getFlags().contains(Modifier.FINAL));
+                VarStack.StackVar stackVar = new VarStack.StackVar(variableDecl.getName().toString(), variableDeclType, varAutoTrim, variableDeclModifiers.getFlags().contains(Modifier.FINAL));
                 if (stackVar.isAutoTrim()) {
                     autoTrimVars.add(stackVar);
                 }
@@ -287,7 +287,8 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
                         Name varName = elementUtils.getName(stackVar.getName());
                         JCTree.JCConditional trimConditional = buildTrimConditional(M, elementUtils, varName);
                         for (JCTree.JCParens reference : references) {
-                            reference.expr = trimConditional;
+                            // reference.expr = trimConditional; // 用这个测试发现也可以，但是为了规避未测试的环境出现问题，还是选择加了强转的
+                            reference.expr = M.TypeCast(stackVar.getVariableDeclType(), trimConditional);
                         }
                         references.clear();
                     }
@@ -309,16 +310,16 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
                 Name varName = elementUtils.getName(stackVar.getName());
                 if (references.size() == 1) {
                     JCTree.JCParens jcParens = references.get(0);
-                    jcParens.expr = buildTrimConditional(M, elementUtils, varName);
+                    jcParens.expr = M.TypeCast(stackVar.getVariableDeclType(), buildTrimConditional(M, elementUtils, varName));
                     continue;
                 }
 
                 if (stackVar.isNeedFinal()) {
                     final Name tempVarName = elementUtils.getName(TEMP_PREFIX).append(varName);
+                    final JCTree variableDeclType = stackVar.getVariableDeclType();
                     final JCTree.JCExpression tempVarIdent = M.Ident(tempVarName);
-
                     final JCTree.JCVariableDecl tempVar = M.VarDef(M.Modifiers(FINAL), tempVarName,
-                            M.Ident(elementUtils.getName(STRING_SIMPLE_NAME)), buildTrimConditional(M, elementUtils, varName));
+                            (JCTree.JCExpression) variableDeclType, buildTrimConditional(M, elementUtils, varName));
                     preStatements.add(tempVar);
                     for (JCTree.JCParens jcParens : references) {
                         jcParens.expr = tempVarIdent;
@@ -370,6 +371,7 @@ public abstract class AbstractTreeProcessor extends SimpleTreeVisitor<JCTree, Au
             JCTree.JCParens reference = M.Parens(t);
             stackVar.addReference(reference);
             return reference;
+            // return M.TypeCast(stackVar.getVariableDeclType(), reference);
         }
         return t;
     }
