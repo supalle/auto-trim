@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.supalle</groupId>
         <artifactId>auto-trim-project</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
     <name>auto-trim-test</name>
