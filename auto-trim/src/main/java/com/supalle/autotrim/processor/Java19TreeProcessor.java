@@ -41,11 +41,14 @@ public class Java19TreeProcessor extends Java17TreeProcessor {
         return t;
     }
 
+    private final FieldHandle<JCTree.JCExpression> patternCaseLabelGuard = FieldHandle.of(JCTree.JCPatternCaseLabel.class, "guard");
+
     @Override
     public JCTree visitPatternCaseLabel(PatternCaseLabelTree node, AutoTrimContext context) {
         JCTree.JCPatternCaseLabel t = (JCTree.JCPatternCaseLabel) node;
         t.pat = process(t.pat, context);
-        t.guard = process(t.guard, context);
+        // t.guard = process(t.guard, context);
+        patternCaseLabelGuard.set(t, process(patternCaseLabelGuard.get(t), context));
         return t;
     }
 

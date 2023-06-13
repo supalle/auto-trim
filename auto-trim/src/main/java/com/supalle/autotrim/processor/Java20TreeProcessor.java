@@ -5,6 +5,7 @@ import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.supalle.autotrim.AutoTrimContext;
+import com.supalle.autotrim.FieldHandle;
 
 import javax.lang.model.SourceVersion;
 import java.util.concurrent.ConcurrentMap;
@@ -23,11 +24,14 @@ public class Java20TreeProcessor extends Java19TreeProcessor {
     // ==================== visit ======================
 
 
+    private final FieldHandle<JCTree> enhancedForLoopVar = FieldHandle.of(JCTree.JCEnhancedForLoop.class, "varOrRecordPattern");
+
     public JCTree visitEnhancedForLoop(EnhancedForLoopTree node, AutoTrimContext context) {
         JCTree.JCEnhancedForLoop t = (JCTree.JCEnhancedForLoop) node;
         context.newVarStack();
         // t.var = process(t.var, context);
-        t.varOrRecordPattern = process(t.varOrRecordPattern, context);
+        // t.varOrRecordPattern = process(t.varOrRecordPattern, context);
+        enhancedForLoopVar.set(t, process(enhancedForLoopVar.get(t), context));
         t.expr = process(t.expr, context);
         context.newVarStack();
         t.body = process(t.body, context);
